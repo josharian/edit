@@ -27,6 +27,59 @@ func TestEdit(t *testing.T) {
 	}
 }
 
+func TestOverlappingDeletes(t *testing.T) {
+	const in = "0123456789"
+	const want = "0156789"
+
+	// Test single delete.
+	b := NewBuffer([]byte(in))
+	b.Delete(2, 5)
+	if got := b.String(); got != want {
+		t.Errorf("b.String() = %q want %q", got, want)
+	}
+
+	// Test overlap at beginning.
+	b = NewBuffer([]byte(in))
+	b.Delete(2, 3)
+	b.Delete(2, 5)
+	if got := b.String(); got != want {
+		t.Errorf("b.String() = %q want %q", got, want)
+	}
+
+	// Test overlap in middle.
+	b = NewBuffer([]byte(in))
+	b.Delete(3, 4)
+	b.Delete(2, 5)
+	if got := b.String(); got != want {
+		t.Errorf("b.String() = %q want %q", got, want)
+	}
+
+	// Test overlap at end.
+	b = NewBuffer([]byte(in))
+	b.Delete(4, 5)
+	b.Delete(2, 5)
+	if got := b.String(); got != want {
+		t.Errorf("b.String() = %q want %q", got, want)
+	}
+
+	// Test covering overlap.
+	b = NewBuffer([]byte(in))
+	b.Delete(2, 3)
+	b.Delete(3, 5)
+	b.Delete(2, 5)
+	if got := b.String(); got != want {
+		t.Errorf("b.String() = %q want %q", got, want)
+	}
+
+	// Test partial overlap.
+	b = NewBuffer([]byte(in))
+	b.Delete(2, 4)
+	b.Delete(3, 5)
+	if got := b.String(); got != want {
+		t.Errorf("b.String() = %q want %q", got, want)
+	}
+}
+
 var sink []byte
 
 func BenchmarkBytes(b *testing.B) {

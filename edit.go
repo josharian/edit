@@ -106,11 +106,22 @@ func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
 
 	offset := 0
 	for i, e := range b.q {
-		if e.start < offset {
+		start := e.start
+		if start < offset {
 			e0 := b.q[i-1]
-			panic(fmt.Sprintf("overlapping edits: [%d,%d)->%q, [%d,%d)->%q", e0.start, e0.end, e0.new, e.start, e.end, e.new))
+			if e.new != "" || e0.new != "" {
+				panic(fmt.Sprintf("overlapping edits: [%d,%d)->%q, [%d,%d)->%q", e0.start, e0.end, e0.new, e.start, e.end, e.new))
+			}
+			// Both edits are deletes, which can be safely merged.
+			if e.end < e0.end {
+				// e is subsumed by e0. Ignore it entirely.
+				continue
+			}
+			// e's deletion continues past the end of e0's.
+			// Start deleting where e0 left off.
+			start = offset
 		}
-		if err := write(b.old[offset:e.start]); err != nil {
+		if err := write(b.old[offset:start]); err != nil {
 			return total, err
 		}
 		offset = e.end
