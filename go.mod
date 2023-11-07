@@ -1,3 +1,3 @@
-module rsc.io/edit
+module github.com/josharian/edit
 
 go 1.18
