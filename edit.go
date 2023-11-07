@@ -6,8 +6,11 @@
 package edit
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"sort"
+	"strings"
 )
 
 // A Buffer is a queue of edits to apply to a given byte slice.
@@ -69,28 +72,52 @@ func (b *Buffer) Replace(start, end int, new string) {
 // Bytes returns a new byte slice containing the original data
 // with the queued edits applied.
 func (b *Buffer) Bytes() []byte {
+	buf := new(bytes.Buffer)
+	b.WriteTo(buf)
+	return buf.Bytes()
+}
+
+// String returns a string containing the original data
+// with the queued edits applied.
+func (b *Buffer) String() string {
+	buf := new(strings.Builder)
+	b.WriteTo(buf)
+	return buf.String()
+}
+
+// WriteTo writed the data with queued edits applied to w.
+func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
 	// Sort edits by starting position and then by ending position.
 	// Breaking ties by ending position allows insertions at point x
 	// to be applied before a replacement of the text at [x, y).
 	sort.Stable(b.q)
 
-	var new []byte
+	var total int64
+	write := func(p []byte) error {
+		n, err := w.Write(p)
+		total += int64(n)
+		return err
+	}
+	writeStr := func(s string) error {
+		n, err := io.WriteString(w, s)
+		total += int64(n)
+		return err
+	}
+
 	offset := 0
 	for i, e := range b.q {
 		if e.start < offset {
 			e0 := b.q[i-1]
 			panic(fmt.Sprintf("overlapping edits: [%d,%d)->%q, [%d,%d)->%q", e0.start, e0.end, e0.new, e.start, e.end, e.new))
 		}
-		new = append(new, b.old[offset:e.start]...)
+		if err := write(b.old[offset:e.start]); err != nil {
+			return total, err
+		}
 		offset = e.end
-		new = append(new, e.new...)
+		if err := writeStr(e.new); err != nil {
+			return total, err
+		}
 	}
-	new = append(new, b.old[offset:]...)
-	return new
-}
-
-// String returns a string containing the original data
-// with the queued edits applied.
-func (b *Buffer) String() string {
-	return string(b.Bytes())
+	err = write(b.old[offset:])
+	return total, err
 }

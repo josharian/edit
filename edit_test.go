@@ -26,3 +26,20 @@ func TestEdit(t *testing.T) {
 		t.Errorf("b.Bytes() = %q, want %q", sb, want)
 	}
 }
+
+var sink []byte
+
+func BenchmarkBytes(b *testing.B) {
+	b.ReportAllocs()
+	for i := 0; i < b.N; i++ {
+		b := NewBuffer([]byte("0123456789"))
+		b.Insert(8, ",7½,")
+		b.Replace(9, 10, "the-end")
+		b.Insert(10, "!")
+		b.Insert(4, "3.14,")
+		b.Insert(4, "π,")
+		b.Insert(4, "3.15,")
+		b.Replace(3, 4, "three,")
+		sink = b.Bytes()
+	}
+}
