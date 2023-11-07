@@ -16,6 +16,7 @@ import (
 // A Buffer is a queue of edits to apply to a given byte slice.
 type Buffer struct {
 	old []byte
+	str string // old, but a string, used only when old is nil
 	q   edits
 }
 
@@ -45,9 +46,22 @@ func NewBuffer(old []byte) *Buffer {
 	return &Buffer{old: old}
 }
 
+// NewBufferString returns a new buffer to accumulate changes to an initial string.
+func NewBufferString(old string) *Buffer {
+	return &Buffer{str: old}
+}
+
+// contentsLen returns the length of the original data.
+func (b *Buffer) contentsLen() int {
+	if b.old != nil {
+		return len(b.old)
+	}
+	return len(b.str)
+}
+
 // Insert inserts the new string at old[pos:pos].
 func (b *Buffer) Insert(pos int, new string) {
-	if pos < 0 || pos > len(b.old) {
+	if pos < 0 || pos > b.contentsLen() {
 		panic("invalid edit position")
 	}
 	b.q = append(b.q, edit{pos, pos, new})
@@ -55,7 +69,7 @@ func (b *Buffer) Insert(pos int, new string) {
 
 // Delete deletes the text old[start:end].
 func (b *Buffer) Delete(start, end int) {
-	if end < start || start < 0 || end > len(b.old) {
+	if end < start || start < 0 || end > b.contentsLen() {
 		panic("invalid edit position")
 	}
 	b.q = append(b.q, edit{start, end, ""})
@@ -63,7 +77,7 @@ func (b *Buffer) Delete(start, end int) {
 
 // Replace replaces old[start:end] with new.
 func (b *Buffer) Replace(start, end int, new string) {
-	if end < start || start < 0 || end > len(b.old) {
+	if end < start || start < 0 || end > b.contentsLen() {
 		panic("invalid edit position")
 	}
 	b.q = append(b.q, edit{start, end, new})
@@ -121,7 +135,12 @@ func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
 			// Start deleting where e0 left off.
 			start = offset
 		}
-		if err := write(b.old[offset:start]); err != nil {
+		if b.old != nil {
+			err = write(b.old[offset:start])
+		} else {
+			err = writeStr(b.str[offset:start])
+		}
+		if err != nil {
 			return total, err
 		}
 		offset = e.end
@@ -129,6 +148,10 @@ func (b *Buffer) WriteTo(w io.Writer) (n int64, err error) {
 			return total, err
 		}
 	}
-	err = write(b.old[offset:])
+	if b.old != nil {
+		err = write(b.old[offset:])
+	} else {
+		err = writeStr(b.str[offset:])
+	}
 	return total, err
 }

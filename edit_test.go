@@ -27,6 +27,27 @@ func TestEdit(t *testing.T) {
 	}
 }
 
+func TestEditString(t *testing.T) {
+	b := NewBufferString("0123456789")
+	b.Insert(8, ",7½,")
+	b.Replace(9, 10, "the-end")
+	b.Insert(10, "!")
+	b.Insert(4, "3.14,")
+	b.Insert(4, "π,")
+	b.Insert(4, "3.15,")
+	b.Replace(3, 4, "three,")
+	want := "012three,3.14,π,3.15,4567,7½,8the-end!"
+
+	s := b.String()
+	if s != want {
+		t.Errorf("b.String() = %q, want %q", s, want)
+	}
+	sb := b.Bytes()
+	if string(sb) != want {
+		t.Errorf("b.Bytes() = %q, want %q", sb, want)
+	}
+}
+
 func TestOverlappingDeletes(t *testing.T) {
 	const in = "0123456789"
 	const want = "0156789"
